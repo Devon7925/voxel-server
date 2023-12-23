@@ -1,10 +1,13 @@
 mod args;
 mod error;
 mod signaling;
+mod shared;
 
 use crate::signaling::{ws_handler, ServerState};
-use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
+use axum::{http::StatusCode, response::IntoResponse, routing::get, Router, Json};
+use cgmath::{Vector3, Point3};
 use clap::Parser;
+use shared::{Lobby, GameSettings};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -39,6 +42,7 @@ async fn main() {
     // Setup router
     let server_state = Arc::new(futures::lock::Mutex::new(ServerState::default()));
     let app = Router::new()
+        .route("/lobby_list", get(lobby_lister))
         .route("/health", get(health_handler))
         .route("/", get(ws_handler))
         .route("/:room_id", get(ws_handler))
@@ -69,4 +73,44 @@ async fn main() {
 
 pub async fn health_handler() -> impl IntoResponse {
     StatusCode::OK
+}
+
+pub async fn lobby_lister() -> impl IntoResponse {
+    // insert your application logic here
+    let lobbies = vec![
+        Lobby {
+            name: "Regular Multiplayer".to_string(),
+            lobby_id: 1,
+            settings: GameSettings {
+                name: "Standard Open Multiplayer".to_string(),
+                delta_time: 0.03,
+                is_remote: true,
+                player_count: 2,
+                render_size: Vector3::new(32, 16, 32),
+                spawn_location: Point3::new(10000.0, 1810.0, 10000.0),
+                max_loaded_chunks: 2048,
+                world_gen: shared::WorldGenSettings::Normal,
+                fixed_center: false,
+            },
+        },
+        Lobby {
+            name: "Public Practice Range".to_string(),
+            lobby_id: 2,
+            settings: GameSettings {
+                name: "Public Practice Range".to_string(),
+                delta_time: 0.03,
+                is_remote: true,
+                player_count: 2,
+                render_size: Vector3::new(32, 16, 32),
+                spawn_location: Point3::new(10000.0, 1810.0, 10000.0),
+                max_loaded_chunks: 2048,
+                world_gen: shared::WorldGenSettings::PracticeRange,
+                fixed_center: true,
+            },
+        },
+    ];
+
+    // this will be converted into a JSON response
+    // with a status code of `201 Created`
+    (StatusCode::CREATED, Json(lobbies)).into_response()
 }
